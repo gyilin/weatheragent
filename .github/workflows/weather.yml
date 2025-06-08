@@ -1,0 +1,62 @@
+name: 每日天气提醒
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 每天 8 AM 美东时间（UTC+0 是 12 PM）
+  workflow_dispatch:
+
+jobs:
+  weather:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 获取天气并推送
+        env:
+          API_KEY: ${{ secrets.OWM_KEY }}
+          CITY: ${{ secrets.CITY }}
+          SENDKEY: ${{ secrets.SENDKEY }}
+        run: |
+          echo "import requests, datetime
+
+API_KEY = '${{ secrets.OWM_KEY }}'
+CITY = '${{ secrets.CITY }}'
+SENDKEY = '${{ secrets.SENDKEY }}'
+
+def get_weather():
+    url = f'https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={API_KEY}&units=metric&lang=zh_cn'
+    resp = requests.get(url)
+    data = resp.json()
+    if resp.status_code != 200 or 'weather' not in data:
+        return '❌ 无法获取天气信息'
+    weather_desc = data['weather'][0]['description']
+    temp = data['main']['temp']
+    feels_like = data['main']['feels_like']
+    wind_speed = data['wind']['speed']
+    humidity = data['main']['humidity']
+    date = datetime.datetime.now().strftime('%Y-%m-%d (%A)')
+    msg = (
+        f'📍 城市：{CITY}\\n'
+        f'📅 日期：{date}\\n'
+        f'🌦️ 天气：{weather_desc}\\n'
+        f'🌡️ 气温：{temp}℃（体感 {feels_like}℃）\\n'
+        f'💧 湿度：{humidity}%\\n'
+        f'💨 风速：{wind_speed} m/s\\n'
+        f'🧥 提示：根据天气情况合理穿衣哦～'
+    )
+    return msg
+
+def send_wechat(msg):
+    url = f'https://sctapi.ftqq.com/{SENDKEY}.send'
+    data = {'title': '今日天气提醒 ☀️', 'desp': msg}
+    requests.post(url, data=data)
+
+send_wechat(get_weather())
+" > weather.py
+          python weather.py
