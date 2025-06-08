@@ -1,0 +1,65 @@
+name: Daily Weather Push
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 每天 8AM 美国东部时间（12:00 UTC）
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Run weather agent
+        env:
+          API_KEY: ${{ secrets.QWEATHER_KEY }}
+          CITY: ${{ secrets.CITY }}
+          SENDKEY: ${{ secrets.SENDKEY }}
+        run: |
+          echo "import requests, datetime
+
+API_KEY = '${{ secrets.QWEATHER_KEY }}'
+CITY = '${{ secrets.CITY }}'
+SENDKEY = '${{ secrets.SENDKEY }}'
+
+def get_weather():
+    url = f'https://devapi.qweather.com/v7/weather/now?location={CITY}&adm=USA&key={API_KEY}'
+    resp = requests.get(url)
+    data = resp.json()
+    if data.get('code') != '200':
+        return '❌ 天气获取失败'
+    now = data['now']
+    weather_text = now['text']
+    temp = now['temp']
+    wind_dir = now['windDir']
+    wind_scale = now['windScale']
+    date = datetime.datetime.now().strftime('%Y-%m-%d (%A)')
+    msg = (
+        f'📍 城市：Boston 🇺🇸\\n'
+        f'📅 日期：{date}\\n'
+        f'🌦️ 天气：{weather_text}\\n'
+        f'🌡️ 气温：{temp}℃\\n'
+        f'💨 风力：{wind_dir} {wind_scale}级\\n'
+        f'🧥 提示：出门记得查看天气变化哦！'
+    )
+    return msg
+
+def send_wechat(msg):
+    push_url = f'https://sctapi.ftqq.com/{SENDKEY}.send'
+    data = {'title': '今日天气提醒 ☀️', 'desp': msg}
+    requests.post(push_url, data=data)
+
+msg = get_weather()
+send_wechat(msg)
+" > weather_run.py
+          python weather_run.py
